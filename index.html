@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>机器人 - 验证ReChapcha</title>
+    <style>
+        /* --- 基础样式仿 reCAPTCHA --- */
+        body {
+            font-family: 'Roboto', helvetica, arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none; /* 防止作弊选中文本 */
+        }
+
+        .captcha-container {
+            background: #f9f9f9;
+            border: 1px solid #d3d3d3;
+            border-radius: 3px;
+            box-shadow: 0 0 4px 1px rgba(0,0,0,0.08);
+            width: 380px;
+            padding: 10px;
+            position: relative;
+        }
+
+        /* 初始状态：复选框 */
+        .checkbox-window {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #d3d3d3;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .checkbox-window:hover {
+            border: 1px solid #c1c1c1;
+        }
+
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #c1c1c1;
+            border-radius: 2px;
+            margin-right: 12px;
+            background: #fff;
+            position: relative;
+        }
+
+        .checkbox.checked::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 1px;
+            width: 6px;
+            height: 14px;
+            border: solid #009688;
+            border-width: 0 3px 3px 0;
+            transform: rotate(45deg);
+        }
+
+        .label {
+            font-size: 14px;
+            color: #282828;
+            font-weight: 500;
+        }
+
+        .logo {
+            margin-left: auto;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+            opacity: 0.5;
+        }
+
+        .logo span {
+            font-size: 10px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        /* --- 弹窗挑战区域 --- */
+        .challenge-box {
+            display: none; /* 默认隐藏 */
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 400px; /* 比容器稍大 */
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            border: 1px solid #ccc;
+            z-index: 100;
+            padding: 15px;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #4A90E2;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .level-indicator {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .game-area {
+            padding: 20px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #eee;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .instruction {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .footer {
+            padding-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 2px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        .btn:hover { background: #357ae8; }
+        .btn.disabled { background: #ccc; cursor: not-allowed; }
+
+        /* --- 游戏内元素通用样式 --- */
+        .grid-3x3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        .grid-item {
+            width: 80px;
+            height: 80px;
+            background: #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .grid-item.selected {
+            box-shadow: inset 0 0 0 4px #4A90E2;
+        }
+        .error-msg {
+            color: #d93025;
+            font-size: 12px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* 成功动画 */
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4A90E2;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="captcha-container">
+        <div class="checkbox-window" id="start-btn">
+            <div class="checkbox" id="main-checkbox"></div>
+            <div class="spinner" id="main-spinner"></div>
+            <div class="label" id="main-label">进行人机身份验证</div>
+            <div class="logo">
+                <img src="https://www.gstatic.com/recaptcha/api2/logo_48.png" alt="logo">
+                <span>reCAPTCHA</span>
+                <span>隐私权 - 条款</span>
+            </div>
+        </div>
+
+        <div class="challenge-box" id="challenge-box">
+            <div class="header">
+                <span id="header-title">请验证</span>
+                <span class="level-indicator">关卡: <span id="current-level">1</span>/20</span>
+            </div>
+            
+            <div class="game-area" id="game-area">
+                </div>
+            <div class="error-msg" id="error-msg">请重试。</div>
+
+            <div class="footer">
+                <button class="btn" id="verify-btn">验证</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 游戏状态 ---
+        let currentLevel = 1;
+        const totalLevels = 20;
+        let gameState = {}; // 用于存储当前关卡的临时数据
+
+        // --- DOM 元素 ---
+        const startBtn = document.getElementById('start-btn');
+        const challengeBox = document.getElementById('challenge-box');
+        const gameArea = document.getElementById('game-area');
+        const verifyBtn = document.getElementById('verify-btn');
+        const levelSpan = document.getElementById('current-level');
+        const errorMsg = document.getElementById('error-msg');
+        
+        // --- 启动游戏 ---
+        startBtn.addEventListener('click', () => {
+            if(startBtn.classList.contains('done')) return;
+            
+            // 模拟加载
+            document.getElementById('main-checkbox').style.display = 'none';
+            document.getElementById('main-spinner').style.display = 'block';
+            
+            setTimeout(() => {
+                document.getElementById('main-spinner').style.display = 'none';
+                challengeBox.style.display = 'flex';
+                loadLevel(currentLevel);
+            }, 800);
+        });
+
+        // --- 核心验证按钮点击 ---
+        verifyBtn.addEventListener('click', () => {
+            checkAnswer();
+        });
+
+        // --- 关卡定义 (这是你要发挥脑洞的地方) ---
+        const levels = {
+            1: {
+                title: "选择所有包含“猫”的方块",
+                render: () => {
+                    // 第一关：正常的逻辑，文字代替图片
+                    let html = `<div class="instruction">请点击所有写着"猫"的方块</div>`;
+                    html += `<div class="grid-3x3">`;
+                    const items = ['狗', '猫', '鱼', '猫', '鸟', '猫', '鼠', '马', '草'];
+                    items.forEach((item, index) => {
+                        html += `<div class="grid-item" onclick="toggleSelect(this)" data-val="${item}">${item}</div>`;
+                    });
+                    html += `</div>`;
+                    gameArea.innerHTML = html;
+                },
+                check: () => {
+                    const selected = document.querySelectorAll('.grid-item.selected');
+                    let correct = true;
+                    if (selected.length === 0) correct = false;
+                    selected.forEach(el => {
+                        if (el.getAttribute('data-val') !== '猫') correct = false;
+                    });
+                    // 漏选检查
+                    const allCats = document.querySelectorAll('.grid-item[data-val="猫"]');
+                    if (selected.length !== allCats.length) correct = false;
+                    return correct;
+                }
+            },
+            2: {
+                title: "数学验证",
+                render: () => {
+                    // 第二关：简单的数学，稍微动脑
+                    gameState.num1 = Math.floor(Math.random() * 10) + 5;
+                    gameState.num2 = Math.floor(Math.random() * 10) + 5;
+                    let html = `<div class="instruction">为了证明你是人类，请计算：<br><b>${gameState.num1} + ${gameState.num2} = ?</b></div>`;
+                    html += `<input type="number" id="math-input" style="padding:10px; font-size:18px; width:100px;">`;
+                    gameArea.innerHTML = html;
+                },
+                check: () => {
+                    const val = parseInt(document.getElementById('math-input').value);
+                    return val === (gameState.num1 + gameState.num2);
+                }
+            },
+            3: {
+                title: "色弱测试？",
+                render: () => {
+                    // 第三关：找不同颜色
+                    let html = `<div class="instruction">点击颜色最浅的那个方块</div>`;
+                    html += `<div class="grid-3x3">`;
+                    const correctIdx = Math.floor(Math.random() * 9);
+                    gameState.correctIdx = correctIdx;
+                    for(let i=0; i<9; i++) {
+                        // 正常的蓝色 vs 稍微浅一点的蓝色
+                        let color = i === correctIdx ? '#4A90F2' : '#4A90E2'; 
+                        html += `<div class="grid-item" style="background:${color}; color:transparent" onclick="selectSingle(this, ${i})">.</div>`;
+                    }
+                    html += `</div>`;
+                    gameArea.innerHTML = html;
+                },
+                check: () => {
+                    return gameState.selectedIdx === gameState.correctIdx;
+                }
+            },
+            4: {
+                title: "逆向思维",
+                render: () => {
+                    // 第四关：不要点击
+                    let html = `<div class="instruction" style="color:red"><b>绝对不要点击验证按钮！</b><br>请等待 3 秒。</div>`;
+                    html += `<div id="timer" style="font-size:24px; margin-top:10px">3.00</div>`;
+                    gameArea.innerHTML = html;
+                    
+                    gameState.canVerify = false;
+                    let timeLeft = 3.00;
+                    
+                    const timer = setInterval(() => {
+                        timeLeft -= 0.01;
+                        document.getElementById('timer').innerText = timeLeft.toFixed(2);
+                        if (timeLeft <= 0) {
+                            clearInterval(timer);
+                            document.getElementById('timer').innerText = "现在可以点击了";
+                            document.getElementById('timer').style.color = "green";
+                            gameState.canVerify = true;
+                        }
+                    }, 10);
+                },
+                check: () => {
+                    return gameState.canVerify === true;
+                }
+            },
+            5: {
+                title: "敏捷测试",
+                render: () => {
+                    // 第五关：按钮逃逸
+                    let html = `<div class="instruction">点击下方的"确认"按钮</div>`;
+                    // 我们把真正的逻辑放在 verify 按钮本身的移动上
+                    // 这里只需要一个说明
+                    gameArea.innerHTML = html;
+                    
+                    // 让验证按钮动起来
+                    verifyBtn.onmouseover = function() {
+                        const x = Math.random() * 200 - 100; // 左右随机
+                        const y = Math.random() * 50 - 25;   // 上下随机
+                        this.style.transform = `translate(${x}px, ${y}px)`;
+                    };
+                },
+                check: () => {
+                    // 如果能点到，就算过
+                    verifyBtn.style.transform = 'none'; // 复位
+                    verifyBtn.onmouseover = null; // 移除事件
+                    return true;
+                }
+            }
+            // --- 在这里添加 6-20 关 ---
+        };
+
+        // --- 辅助函数 ---
+        function loadLevel(n) {
+            levelSpan.innerText = n;
+            errorMsg.style.display = 'none';
+            // 清理旧状态
+            gameState = {}; 
+            verifyBtn.onmouseover = null; // 清理特殊的事件绑定
+            verifyBtn.style.transform = 'none';
+
+            if (levels[n]) {
+                document.getElementById('header-title').innerText = levels[n].title;
+                levels[n].render();
+            } else {
+                gameArea.innerHTML = "<div>关卡开发中...</div>";
+            }
+        }
+
+        function checkAnswer() {
+            if (levels[currentLevel] && levels[currentLevel].check()) {
+                // 正确
+                currentLevel++;
+                if (currentLevel > totalLevels) {
+                    gameComplete();
+                } else {
+                    loadLevel(currentLevel);
+                }
+            } else {
+                // 错误
+                errorMsg.style.display = 'block';
+                shakeBox();
+            }
+        }
+
+        // 选中多个 (Level 1 用)
+        window.toggleSelect = (el) => {
+            el.classList.toggle('selected');
+        }
+
+        // 选中单个 (Level 3 用)
+        window.selectSingle = (el, idx) => {
+            document.querySelectorAll('.grid-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            gameState.selectedIdx = idx;
+        }
+
+        function shakeBox() {
+            challengeBox.style.animation = "shake 0.5s";
+            setTimeout(() => { challengeBox.style.animation = ""; }, 500);
+        }
+
+        function gameComplete() {
+            challengeBox.style.display = 'none';
+            startBtn.classList.add('done');
+            document.getElementById('main-checkbox').classList.add('checked');
+            document.getElementById('main-checkbox').style.display = 'block';
+            document.getElementById('main-label').innerText = "通过验证 (你是真的闲)";
+            document.getElementById('main-label').style.color = "green";
+        }
+
+    </script>
+
+    <style>
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</body>
+</html>
