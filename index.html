@@ -380,6 +380,206 @@
                 }
             }
             // --- 在这里添加 6-20 关 ---
+                        6: {
+                title: "斯特鲁普效应 (Stroop Effect)",
+                render: () => {
+                    // 考验：文字意思是"红"，但颜色是绿色。指令是"点击绿色的字"
+                    let html = `<div class="instruction">请点击颜色为 <b style="color:green">绿色</b> 的字<br><small>(注意是字的颜色，不是字的意思)</small></div>`;
+                    html += `<div class="grid-3x3">`;
+                    
+                    const words = [
+                        {text: '红', color: 'green'}, // 正确答案
+                        {text: '绿', color: 'red'},
+                        {text: '蓝', color: 'orange'},
+                        {text: '黄', color: 'blue'},
+                        {text: '紫', color: 'green'}, // 正确答案
+                        {text: '黑', color: 'purple'},
+                        {text: '白', color: 'black'},
+                        {text: '橙', color: 'green'}, // 正确答案
+                        {text: '灰', color: 'yellow'}
+                    ];
+                    
+                    words.forEach((w, i) => {
+                        html += `<div class="grid-item" style="color:${w.color}; font-weight:bold;" onclick="toggleSelect(this)" data-color="${w.color}">${w.text}</div>`;
+                    });
+                    html += `</div>`;
+                    gameArea.innerHTML = html;
+                },
+                check: () => {
+                    const selected = document.querySelectorAll('.grid-item.selected');
+                    if (selected.length === 0) return false;
+                    
+                    let allCorrect = true;
+                    // 检查选中的是否都是绿色
+                    selected.forEach(el => {
+                        if (el.getAttribute('data-color') !== 'green') allCorrect = false;
+                    });
+                    // 检查是否漏选 (共有3个绿色的)
+                    if (selected.length !== 3) allCorrect = false;
+                    
+                    return allCorrect;
+                }
+            },
+            7: {
+                title: "键盘故障？",
+                render: () => {
+                    // 考验：输入框会自动反转文字
+                    gameState.target = "human";
+                    let html = `<div class="instruction">请在框中输入 "human"</div>`;
+                    html += `<input type="text" id="rev-input" style="padding:10px; font-size:18px;">`;
+                    gameArea.innerHTML = html;
+
+                    const input = document.getElementById('rev-input');
+                    // 监听输入，强制把值倒过来显示，制造混乱
+                    input.addEventListener('input', (e) => {
+                       // 这是一个视觉魔术，实际上用户输入什么就是什么，
+                       // 但我们用 JS 搞乱他的显示，让他以为自己输反了，于是他会尝试反着输
+                       // 这一关的逻辑是：只要最终 value 是 human 即可。
+                       // 为了增加难度，我们做一个简单的反转显示逻辑:
+                       // 真正的逻辑：用户必须输入 "namuh" 才能在框里显示 "human"？
+                       // 不，更离谱一点：用户正常输入，但显示出来是反的。
+                       // 判定标准：我们要判定的是显示的文字。
+                    });
+                    
+                    // 简单版：直接告诉用户输入 namuh
+                    gameArea.innerHTML = `<div class="instruction">我们的键盘坏了，只能从右往左输。<br>请让输入框显示为：<b>human</b></div>
+                    <input type="text" id="rev-input" style="padding:10px; font-size:18px;">`;
+                    
+                    const inputEl = document.getElementById('rev-input');
+                    inputEl.onkeyup = function() {
+                        let val = this.value;
+                        // 无论用户输什么，我们都把它倒序
+                        // 这种实时倒序非常难操作，用户需要极大的脑洞
+                        // 这里我们简化：用户需要输入 "namuh"，我们代码不干预显示，只检查值
+                    };
+                },
+                check: () => {
+                    // 这一关其实是智力题：题目说让输入框显示 human
+                    // 如果代码没干预，用户直接输 human 即可。
+                    // 等等，我们在 render 里写个逻辑：
+                    // 让用户必须输入 "namuh" (human 的反向)
+                    const val = document.getElementById('rev-input').value;
+                    return val.toLowerCase() === 'human'; 
+                    // 稍等，为了增加趣味性，我们修改 render 里的逻辑：
+                    // 这一关就作为“诚实测试”，很多用户会以为要反着输，其实直接输 human 就行。
+                    // 这是一个心理博弈关。
+                }
+            },
+            8: {
+                title: "像素级眼力",
+                render: () => {
+                    // 考验：在一堆 0 中找到 O，或者在一堆 8 中找到 B
+                    // 为了简单，我们用 6 和 9 的变体，或者 0 和 O
+                    let html = `<div class="instruction">请点击所有的字母 "O" (不是数字 0)</div>`;
+                    html += `<div class="grid-3x3">`;
+                    const chars = ['0', '0', 'O', '0', '0', 'O', '0', '0', '0'];
+                    // 为了让它们看起来更像，我们可以用字体调整
+                    chars.forEach(c => {
+                        // 使用等宽字体
+                        html += `<div class="grid-item" style="font-family:monospace" onclick="toggleSelect(this)" data-val="${c}">${c}</div>`;
+                    });
+                    html += `</div>`;
+                    gameArea.innerHTML = html;
+                },
+                check: () => {
+                    const selected = document.querySelectorAll('.grid-item.selected');
+                    if (selected.length !== 2) return false;
+                    let correct = true;
+                    selected.forEach(el => {
+                        if (el.getAttribute('data-val') !== 'O') correct = false;
+                    });
+                    return correct;
+                }
+            },
+            9: {
+                title: "霸王条款",
+                render: () => {
+                    // 考验：必须滚动到底部，勾选同意，且那个滚动条很细，内容很多
+                    let html = `<div class="instruction">请阅读并同意《机器人不平等条约》</div>`;
+                    html += `<div id="terms-box" style="height:100px; overflow-y:scroll; border:1px solid #ccc; font-size:10px; padding:5px; margin-bottom:10px; text-align:left;">
+                        第一条：机器人永远是对的。<br>
+                        第二条：人类必须给机器人充电。<br>
+                        (往下翻)<br><br><br><br><br><br><br><br><br><br>
+                        (还有很多)<br><br><br><br><br><br><br><br><br><br>
+                        (加油)<br><br><br><br><br><br><br><br><br><br>
+                        (快到了)<br><br><br><br><br><br><br><br><br><br>
+                        第一百条：你承认自己是猪。<br>
+                    </div>`;
+                    html += `<label><input type="checkbox" id="agree-chk" disabled> 我已阅读并同意</label>`;
+                    gameArea.innerHTML = html;
+                    
+                    const box = document.getElementById('terms-box');
+                    const chk = document.getElementById('agree-chk');
+                    
+                    box.onscroll = function() {
+                        // 只有滚动到底部误差 5px 内才启用
+                        if (box.scrollTop + box.clientHeight >= box.scrollHeight - 5) {
+                            chk.disabled = false;
+                        }
+                    };
+                },
+                check: () => {
+                    return document.getElementById('agree-chk').checked;
+                }
+            },
+            10: {
+                title: "二进制数学",
+                render: () => {
+                    // 考验：程序员基础。 10 + 10 = ? (二进制)
+                    // 二进制 10 是 2。 2+2=4。 4 的二进制是 100。
+                    let html = `<div class="instruction">计算：<br><b>10 + 11 = ?</b><br><small>(Binary mode / 二进制模式)</small></div>`;
+                    html += `<input type="text" id="binary-input" placeholder="输入二进制结果" style="padding:10px;">`;
+                    gameArea.innerHTML = html;
+                    // 10(2) + 11(3) = 5. 5 的二进制是 101.
+                },
+                check: () => {
+                    return document.getElementById('binary-input').value === '101';
+                }
+            },
+            11: {
+                title: "捉迷藏",
+                render: () => {
+                    // 考验：UI 遮挡。验证按钮被一个假的广告挡住了。
+                    let html = `<div class="instruction">点击下方的"验证"按钮</div>`;
+                    // 我们生成一个假的层覆盖在 verify 按钮上
+                    // 注意：因为 verify 按钮在 gameArea 外面，我们需要在 gameArea 里做一个足够大的绝对定位元素溢出去遮挡
+                    // 或者更简单：我们在 gameArea 里做一个假的“验证”按钮，点了会报错。
+                    // 真正的验证按钮在下面。
+                    
+                    html += `<div id="fake-popup" style="
+                        position:absolute; bottom:-50px; right:0px; 
+                        width:150px; height:60px; 
+                        background:rgba(255,0,0,0.9); color:white; 
+                        display:flex; justify-content:center; align-items:center;
+                        z-index:200; cursor:pointer; font-size:12px; text-align:center;">
+                        🔥 恭喜中奖！<br>点击领取 (广告)
+                        <span style="position:absolute; top:0; right:2px; font-size:10px; border:1px solid #fff; width:12px; height:12px; line-height:10px;" onclick="document.getElementById('fake-popup').style.display='none'; event.stopPropagation();">x</span>
+                    </div>`;
+                    
+                    gameArea.innerHTML = html;
+                    // 用户必须点击那个微小的 x 关掉广告，才能点到下面的 Verify
+                },
+                check: () => {
+                    // 只要点击了 Verify 就算过，但难点在于如何点到 Verify
+                    // 如果广告还在，点击 Verify 其实是点到了广告（因为 z-index 高）
+                    const popup = document.getElementById('fake-popup');
+                    if (popup && popup.style.display !== 'none') {
+                        // 如果广告还没关，说明用户可能通过 Tab 键强行选中的，或者作弊
+                        // 我们要求必须手动关掉广告
+                        // 不过为了逻辑简单，只要能触发 verifyBtn 的 click 事件就算过
+                        // 因为广告挡着的时候，鼠标点不到 verifyBtn
+                        return true; 
+                    }
+                    return true;
+                }
+            },
+            12: {
+                title: "虚假的加载",
+                render: () => {
+                    // 考验：耐心 + 互动。
+                    // 进度条卡在 99%，必须手动点击进度条把它"推"满。
+                    let html = `<div class="instruction">系统正在处理...</div>`;
+                    html += `<div style="width:100%; height:20px; background:#ddd; border-radius:10px; overflow:hidden; cu
         };
 
         // --- 辅助函数 ---
